@@ -1,0 +1,57 @@
+services:
+
+  database:
+    image: postgres:18.4
+    container_name: exercise-database
+    env_file: .env
+    networks:
+      - backend-network
+    mem_limit: 256m
+    cpus: 0.5
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 50s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./backend/db-init.sql:/docker-entrypoint-initdb.d/01-db-init.sql:ro
+
+  backend:
+    image: exercise-backend:hardened
+    container_name: exercise-backend-hardened
+    env_file: .env
+    ports:
+      - "8081:8081"
+    networks:
+      - backend-network
+      - frontend-network
+    mem_limit: 512m
+    cpus: 0.5
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: exercise-frontend:hardened
+    container_name: exercise-frontend-hardened
+    ports:
+      - "8080:80"
+    networks:
+      - frontend-network
+    mem_limit: 128m
+    cpus: 0.25
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  backend-network:
+    driver: bridge
+  frontend-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
